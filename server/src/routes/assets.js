@@ -10,6 +10,7 @@ router.use(authenticate);
 
 // ── Read (all authenticated roles) ──────────────────────────
 router.get('/stats',    ctrl.stats);        // GET  /api/assets/stats
+router.get('/assigned', ctrl.getByAssignee); // GET  /api/assets/assigned
 router.get('/',         ctrl.list);         // GET  /api/assets
 router.get('/:id',      ctrl.get);          // GET  /api/assets/:id
 router.get('/:id/history', ctrl.history);   // GET  /api/assets/:id/history

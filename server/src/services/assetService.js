@@ -249,4 +249,53 @@ const getStats = async () => {
   };
 };
 
-module.exports = { getAll, getById, create, update, updateStatus, retire, getHistory, getStats };
+
+async function getByAssignee({ email, name }) {
+  if (!email && !name) {
+    const err = new Error('Either email or name is required.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const query = db('assets as a')
+    .join('users as u', 'u.id', 'a.assigned_to')
+    .select(
+      'a.*',
+      'u.name as assignee_name',
+      'u.email as assignee_email'
+    )
+    .orderBy('a.assigned_since', 'desc');
+
+  if (email) {
+    query.whereRaw('LOWER(u.email) = LOWER(?)', [email]);
+  } else if (name) {
+    query.whereRaw('u.name ILIKE ?', [`%${name}%`]);
+  }
+
+  const assets = await query;
+
+  if (!assets.length) {
+    // Not necessarily an error — could just mean nothing assigned right now.
+    // Distinguish "user doesn't exist" from "user exists but has nothing assigned"
+    // if the frontend needs that distinction:
+    if (email || name) {
+      const userExists = await db('users')
+        .modify((qb) => {
+          if (email) qb.whereRaw('LOWER(email) = LOWER(?)', [email]);
+          else qb.whereRaw('name ILIKE ?', [`%${name}%`]);
+        })
+        .first();
+
+      if (!userExists) {
+        const err = new Error('No user found matching that email/name.');
+        err.statusCode = 404;
+        throw err;
+      }
+    }
+  }
+
+  return assets;
+}
+
+
+module.exports = { getAll, getById, create, update, updateStatus, retire, getHistory, getStats, getByAssignee};

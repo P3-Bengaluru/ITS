@@ -20,6 +20,12 @@ const get = asyncHandler(async (req, res) => {
   res.json(asset);
 });
 
+const getByAssignee = asyncHandler(async (req, res) => {
+  const { email, name } = req.query;
+  const assets = await assetService.getByAssignee({ email, name });
+  res.json(assets);
+});
+
 // POST /api/assets
 const create = asyncHandler(async (req, res) => {
   const photoPath = req.file?.path ?? null;
@@ -68,4 +74,4 @@ const history = asyncHandler(async (req, res) => {
   res.json(data);
 });
 
-module.exports = { list, stats, get, create, update, updateStatus, retire, history };
+module.exports = { list, stats, get, create, update, updateStatus, retire, history, getByAssignee };
