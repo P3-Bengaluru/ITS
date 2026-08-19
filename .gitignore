@@ -69,7 +69,6 @@ uploads/
 *.sql.gz               # backup dumps
 *.dump
 pg_data/               # Docker volume mapped to host
-redis_data/
 *.sqlite
 *.sqlite3
 *.db

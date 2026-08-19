@@ -88,7 +88,7 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // ── Static files (uploaded assets/photos) ────────────────────
-// Served at /uploads/* — Nginx will handle this in production
+// Served at /uploads/* — API handles static file serving directly
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // ── API Routes ────────────────────────────────────────────────

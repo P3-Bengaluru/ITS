@@ -456,7 +456,7 @@ exports.seed = async (knex) => {
     purchase_price: 45000.0,
     invoice_number: 'INV-2022-0901',
     warranty_expiry: '2025-09-01',
-    status: 'in_repair',
+    status: 'maintenance',
     notes: 'Port 12 flapping, sent for RMA check.',
   });
 
@@ -881,7 +881,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0001',
     user_email: 'engineer@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2024-06-03T09:00:00Z',
     approved_at: '2024-06-04T10:00:00Z',
     checked_out_at: '2024-06-05T09:30:00Z',
@@ -893,7 +893,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0002',
     user_email: 'engineer@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2024-06-03T09:00:00Z',
     approved_at: '2024-06-04T10:00:00Z',
     checked_out_at: '2024-06-05T09:30:00Z',
@@ -929,7 +929,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0007',
     user_email: 'nagappa.sunadholi@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2025-09-13T09:00:00Z',
     approved_at: '2025-09-14T10:00:00Z',
     checked_out_at: '2025-09-15T09:30:00Z',
@@ -941,7 +941,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0008',
     user_email: 'shaik.imdad@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-02-07T09:00:00Z',
     approved_at: '2026-02-08T10:00:00Z',
     checked_out_at: '2026-02-09T09:30:00Z',
@@ -953,7 +953,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0009',
     user_email: 'karthik.rao@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-03-07T09:00:00Z',
     approved_at: '2026-03-08T10:00:00Z',
     checked_out_at: '2026-03-09T09:30:00Z',
@@ -965,7 +965,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0010',
     user_email: 'sushmita.koti@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-03-30T09:00:00Z',
     approved_at: '2026-03-31T10:00:00Z',
     checked_out_at: '2026-04-01T09:30:00Z',
@@ -977,7 +977,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0011',
     user_email: 'sahana.s@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-05-09T09:00:00Z',
     approved_at: '2026-05-10T10:00:00Z',
     checked_out_at: '2026-05-11T09:30:00Z',
@@ -989,7 +989,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0012',
     user_email: 'harikrishna.sagarkar@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-01T09:00:00Z',
     approved_at: '2026-06-02T10:00:00Z',
     checked_out_at: '2026-06-03T09:30:00Z',
@@ -1001,7 +1001,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0013',
     user_email: 'pavan.kumar.ghante@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-02T09:00:00Z',
     approved_at: '2026-06-03T10:00:00Z',
     checked_out_at: '2026-06-04T09:30:00Z',
@@ -1013,7 +1013,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0014',
     user_email: 'sumit.kumar.pujeri@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-06T09:00:00Z',
     approved_at: '2026-06-07T10:00:00Z',
     checked_out_at: '2026-06-08T09:30:00Z',
@@ -1025,7 +1025,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0015',
     user_email: 'cundaneswara.reddy@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-06T09:00:00Z',
     approved_at: '2026-06-07T10:00:00Z',
     checked_out_at: '2026-06-08T09:30:00Z',
@@ -1037,7 +1037,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0016',
     user_email: 'hima.varshini.sundur@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-06T09:00:00Z',
     approved_at: '2026-06-07T10:00:00Z',
     checked_out_at: '2026-06-08T09:30:00Z',
@@ -1049,7 +1049,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0017',
     user_email: 'mynashree.b@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-06T09:00:00Z',
     approved_at: '2026-06-07T10:00:00Z',
     checked_out_at: '2026-06-08T09:30:00Z',
@@ -1061,7 +1061,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0018',
     user_email: 'ramaraddi.g.maraddi@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-06T09:00:00Z',
     approved_at: '2026-06-07T10:00:00Z',
     checked_out_at: '2026-06-08T09:30:00Z',
@@ -1073,7 +1073,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0019',
     user_email: 'sanjana.v.u@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-06T09:00:00Z',
     approved_at: '2026-06-07T10:00:00Z',
     checked_out_at: '2026-06-08T09:30:00Z',
@@ -1085,7 +1085,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0020',
     user_email: 'chethan.t.m@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-06T09:00:00Z',
     approved_at: '2026-06-07T10:00:00Z',
     checked_out_at: '2026-06-08T09:30:00Z',
@@ -1097,7 +1097,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0021',
     user_email: 'd.niranjanpal@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-08T09:00:00Z',
     approved_at: '2026-06-09T10:00:00Z',
     checked_out_at: '2026-06-10T09:30:00Z',
@@ -1109,7 +1109,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0022',
     user_email: 'pankaj.kumar.singh@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-09T09:00:00Z',
     approved_at: '2026-06-10T10:00:00Z',
     checked_out_at: '2026-06-11T09:30:00Z',
@@ -1121,7 +1121,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0023',
     user_email: 'ajith.t@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-13T09:00:00Z',
     approved_at: '2026-06-14T10:00:00Z',
     checked_out_at: '2026-06-15T09:30:00Z',
@@ -1133,7 +1133,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0024',
     user_email: 'rashmitha.fernandes@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-06-16T09:00:00Z',
     approved_at: '2026-06-17T10:00:00Z',
     checked_out_at: '2026-06-18T09:30:00Z',
@@ -1145,7 +1145,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0025',
     user_email: 'raghvendra.myageri@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2026-05-30T09:00:00Z',
     approved_at: '2026-05-31T10:00:00Z',
     checked_out_at: '2026-06-01T09:30:00Z',
@@ -1157,7 +1157,7 @@ exports.seed = async (knex) => {
   await upsertAssignment({
     asset_tag: 'AST-0026',
     user_email: 'arun.uppada@p3acclivis.com',
-    status: 'checked_out',
+    status: 'approved',
     requested_at: '2025-08-11T09:00:00Z',
     approved_at: '2025-08-12T10:00:00Z',
     checked_out_at: '2025-08-13T09:30:00Z',
