@@ -19,14 +19,30 @@ const userRoutes      = require('./routes/users');
 const categoryRoutes  = require('./routes/categories');
 const locationRoutes  = require('./routes/locations');
 
+// // ── App & Server ─────────────────────────────────────────────
+// const app    = express();
+// const server = http.createServer(app);
+
+// // ── Socket.IO ────────────────────────────────────────────────
+// const io = new Server(server, {
+//   cors: {
+//     origin:      process.env.CLIENT_URL || 'http://localhost:5173',
+//     credentials: true,
+//   },
+// });
+
 // ── App & Server ─────────────────────────────────────────────
 const app    = express();
 const server = http.createServer(app);
 
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
+
 // ── Socket.IO ────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin:      process.env.CLIENT_URL || 'http://localhost:5173',
+    origin:      allowedOrigins,
     credentials: true,
   },
 });
@@ -54,8 +70,13 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'same-site' },
 }));
 
+// app.use(cors({
+//   origin:      process.env.CLIENT_URL || 'http://localhost:5173',
+//   credentials: true,
+// }));
+
 app.use(cors({
-  origin:      process.env.CLIENT_URL || 'http://localhost:5173',
+  origin:      allowedOrigins,
   credentials: true,
 }));
 

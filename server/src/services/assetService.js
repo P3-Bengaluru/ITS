@@ -257,15 +257,38 @@ async function getByAssignee({ email, name }) {
     throw err;
   }
 
-  const query = db('assets as a')
+  // const query = db('assets as a')
+  //   .join('users as u', 'u.id', 'a.assigned_to')
+  //   .select(
+  //     'a.*',
+  //     'u.name as assignee_name',
+  //     'u.email as assignee_email'
+  //   )
+  //   .orderBy('a.assigned_since', 'desc');
+
+
+    const query = db('assets as a')
     .join('users as u', 'u.id', 'a.assigned_to')
+    .leftJoin('categories as c', 'c.id', 'a.category_id')
+    .leftJoin('locations as l', 'l.id', 'a.location_id')
+    .leftJoin('assignments as asg', function () {
+      this.on('asg.asset_id', '=', 'a.id')
+        .andOn('asg.user_id', '=', 'a.assigned_to')
+        .andOnVal('asg.status', '=', 'approved');
+    })
     .select(
-      'a.*',
-      'u.name as assignee_name',
-      'u.email as assignee_email'
+      'a.id',
+      'a.asset_tag',
+      'a.name',
+      'a.status',
+      'a.assigned_since as allocation_date',
+      'c.name as category',
+      'l.region as region',
+      'u.name as employee',
+      'u.email as employee_email',
+      'asg.expected_return'
     )
     .orderBy('a.assigned_since', 'desc');
-
   if (email) {
     query.whereRaw('LOWER(u.email) = LOWER(?)', [email]);
   } else if (name) {
