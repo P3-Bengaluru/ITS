@@ -4,12 +4,10 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: inventory_db
-      POSTGRES_USER: its_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    env_file: ["./.env"]
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./.env:/.env:ro
     ports:
       - "5432:5432"          # only accessible inside LAN
     healthcheck:
@@ -17,6 +15,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    develop:
+      watch:
+        - action: restart
+          path: ./.env
+          target: /.env
 
   api:
     build:
@@ -25,7 +28,7 @@ services:
       args:
         NODE_ENV: development
     restart: unless-stopped
-    env_file: ./server/.env
+    env_file: ["./.env"]
     ports:
       - "3001:3001"
     depends_on:
@@ -35,29 +38,37 @@ services:
     volumes:
       - ./server:/server
       - /server/node_modules
+      - ./.env:/.env:ro
     develop:
       watch:
+        - action: restart
+          path: ./.env
+          target: /.env
         - action: rebuild
           path: ./server
           target: /server
           ignore:
             - node_modules/
             - dist/
-            - .env
 
   client:
     build:
       context: ./client
       dockerfile: Dockerfile.dev
     restart: unless-stopped
+    env_file: ["./.env"]
     ports:
       - "5173:5173"
     volumes:
       - ./client:/app
       - /app/node_modules
+      - ./.env:/.env:ro
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
     develop:
       watch:
+        - action: restart
+          path: ./.env
+          target: /.env
         - action: rebuild
           path: ./client
           target: /app

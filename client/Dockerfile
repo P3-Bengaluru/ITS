@@ -1,5 +1,5 @@
 # Build stage: compile the Vite React app
-FROM node AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 # Install dependencies from lockfile for reproducibility
@@ -10,8 +10,10 @@ RUN npm ci --silent
 COPY . .
 RUN npm run build
 
-# Production stage: serve the built assets with nginx
-FROM nginx:1.27-alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Production stage: serve the built assets with serve
+FROM node:22-alpine
+WORKDIR /app
+COPY --from=build /app/dist ./dist
+RUN npm install -g serve
+EXPOSE 5173
+CMD ["serve", "-s", "dist", "-l", "5173"]
