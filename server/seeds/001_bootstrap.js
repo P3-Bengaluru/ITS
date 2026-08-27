@@ -242,7 +242,8 @@ exports.seed = async (knex) => {
   // ── 2. Categories ────────────────────────────────────────────
   const assetCats = [
     'Computers & Laptops', 'Monitors & Displays', 'Peripherals',
-    'Networking Equipment', 'Furniture', 'Office Equipment', 'Vehicles', 'Other'
+    'Networking Equipment', 'Furniture', 'Office Equipment', 'Vehicles', 'Other',
+    '3PL AA/CP', '3PL GAS', 'P3 Accessories',
   ];
   const consumableCats = [
     'Stationery', 'Printer Supplies', 'Pantry & Beverages',

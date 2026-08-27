@@ -46,6 +46,10 @@ const assetCreateSchema = z.object({
   next_maintenance_date:      dateField,
   maintenance_interval_days:  z.number().int().positive().optional().nullable(),
   notes:                      z.string().max(2000).optional().nullable(),
+  // Assignment fields — set when an asset is allocated to a user
+  assigned_to:                uuidField.optional().nullable(),
+  assigned_since:             dateField,
+  expected_return:            dateField,
 });
 
 const assetUpdateSchema = assetCreateSchema.partial(); // all fields optional on PATCH
