@@ -25,16 +25,49 @@ function storeToken(token) {
 function clearToken() {
   try { localStorage.removeItem('accessToken') } catch {}
 }
-async function apiFetch(path, options = {}) {
+// Access tokens expire after 15 minutes (see server ACCESS_EXPIRY). When a
+// request comes back 401 we transparently try to mint a new access token
+// from the refresh cookie and retry once, instead of surfacing a stale
+// "Unauthorized" error to the user.
+let refreshPromise = null
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (!res.ok) return null
+        const json = await res.json().catch(() => ({}))
+        if (json.accessToken) storeToken(json.accessToken)
+        return json.accessToken || null
+      })
+      .catch(() => null)
+      .finally(() => { refreshPromise = null })
+  }
+  return refreshPromise
+}
+
+async function apiFetch(path, options = {}, _retried = false) {
   const token = getToken()
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
   })
+
+  // Access token expired mid-session — try a silent refresh once, then retry.
+  if (res.status === 401 && !_retried) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      return apiFetch(path, options, true)
+    }
+  }
+
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
     console.error(`[API ${res.status}] ${path}`, json)
@@ -230,7 +263,7 @@ function Dashboard({ inventory, currentUser }) {
   )
 }
 
-function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, locations, categories, rawLocations, rawCategories, locLoading, catLoading, locError, catError, currentUser }) {
+function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, locations, categories, rawLocations, rawCategories, locLoading, catLoading, locError, catError, currentUser, refreshInventory, engineerUsers = [] }) {
   const [region, setRegion] = useState('')
   const [category, setCategory] = useState('')
   const [search, setSearch] = useState('')
@@ -317,7 +350,7 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
         purchase_price:        form.purchase_price !== '' && form.purchase_price != null ? Number(form.purchase_price) : undefined,
         invoice_number:        form.invoice_number?.trim() || undefined,
         warranty_expiry:       form.warranty_expiry || undefined,
-        assigned_to:           form.assigned_to?.trim() || undefined,
+        assigned_to:           engineerUsers.find(u => u.name === form.assigned_to?.trim())?.id || undefined,
         assigned_since:        form.assigned_since || undefined,
         next_maintenance_date: form.next_maintenance_date || undefined,
       }
@@ -345,18 +378,10 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
         body: JSON.stringify(payload),
       })
 
-      // Use the ID returned by backend; fall back to frontend-generated
-      const newItem = {
-        ...form,
-        id: created?.id || created?.asset_tag || form.id || `INV-${Date.now()}`,
-        barcode: created?.barcode || payload.barcode,
-        sourceId: created?.source_id || payload.source_id,
-      }
-
-      setInventory(inv => [...inv, newItem])
-      setAuditLog(al => [...al, generateAuditEntry(currentUser?.name || 'User', 'Inventory Added', newItem.id, '–', form.status)])
+      setAuditLog(al => [...al, generateAuditEntry(currentUser?.name || 'User', 'Inventory Added', created?.id || form.id, '–', form.status)])
       setShowAdd(false)
       setForm(emptyForm)
+      refreshInventory?.()
     } catch (err) {
       setSaveError(err.message || 'Failed to save. Please try again.')
     } finally {
@@ -397,7 +422,7 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
         purchase_price:        form.purchase_price !== '' && form.purchase_price != null ? Number(form.purchase_price) : undefined,
         invoice_number:        form.invoice_number?.trim() || undefined,
         warranty_expiry:       form.warranty_expiry || undefined,
-        assigned_to:           form.assigned_to?.trim() || undefined,
+        assigned_to:           engineerUsers.find(u => u.name === form.assigned_to?.trim())?.id || undefined,
         assigned_since:        form.assigned_since || undefined,
         next_maintenance_date: form.next_maintenance_date || undefined,
       }
@@ -420,9 +445,9 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
         body: JSON.stringify(payload),
       })
 
-      setInventory(inv => inv.map(i => i.id === showEdit.id ? { ...form } : i))
       setAuditLog(al => [...al, generateAuditEntry(currentUser?.name || 'User', 'Inventory Updated', form.id, '–', form.status)])
       setShowEdit(null)
+      refreshInventory?.()
     } catch (err) {
       setSaveError(err.message || 'Failed to update. Please try again.')
     } finally {
@@ -434,29 +459,72 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
     if (!confirm('Delete this inventory item?')) return
     try {
       await apiFetch(`/api/assets/${id}`, { method: 'DELETE' })
-      setInventory(inv => inv.filter(i => i.id !== id))
       setAuditLog(al => [...al, generateAuditEntry(currentUser?.name || 'User', 'Inventory Deleted', id, '–', 'Deleted')])
+      refreshInventory?.()
     } catch (err) {
       alert(`Delete failed: ${err.message}`)
     }
   }
 
   const [allocForm, setAllocForm] = useState({ engineer: '', project: '', allocationDate: '', expectedReturn: '' })
-  const handleAllocate = () => {
+  const [allocSaving, setAllocSaving] = useState(false)
+  const [allocError, setAllocError] = useState('')
+  const handleAllocate = async () => {
     if (!showAllocate?.id) return
+    const matchedUser = engineerUsers.find(u => u.name === allocForm.engineer)
+    if (!matchedUser) {
+      setAllocError('Could not find that engineer in the user directory. Please pick one from the list.')
+      return
+    }
+    setAllocError('')
+    setAllocSaving(true)
     const prev = showAllocate.status
-    setInventory(inv => inv.map(i => i.id === showAllocate.id ? { ...i, ...allocForm, status: 'Allocated' } : i))
-    setAuditLog(al => [...al, generateAuditEntry('Inventory Manager', 'Inventory Allocated', showAllocate.id, prev, 'Allocated')])
-    setShowAllocate(null)
+    try {
+      await apiFetch(`/api/assets/${showAllocate.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status:          'assigned',
+          assigned_to:     matchedUser.id,
+          assigned_since:  allocForm.allocationDate || new Date().toISOString().slice(0, 10),
+          expected_return: allocForm.expectedReturn || undefined,
+        }),
+      })
+      setAuditLog(al => [...al, generateAuditEntry(currentUser?.name || 'Inventory Manager', 'Inventory Allocated', showAllocate.id, prev, 'Allocated')])
+      setShowAllocate(null)
+      refreshInventory?.()
+    } catch (err) {
+      setAllocError(err.message || 'Failed to allocate. Please try again.')
+    } finally {
+      setAllocSaving(false)
+    }
   }
 
   const [retForm, setRetForm] = useState({ condition: 'Good' })
-  const handleReturn = () => {
+  const [retSaving, setRetSaving] = useState(false)
+  const [retError, setRetError] = useState('')
+  const handleReturn = async () => {
     if (!showReturn?.id) return
-    const newStatus = retForm.condition === 'Damaged' ? 'Damaged' : 'Returned'
-    setInventory(inv => inv.map(i => i.id === showReturn.id ? { ...i, status: newStatus, engineer: '', returnDate: new Date().toISOString().slice(0, 10) } : i))
-    setAuditLog(al => [...al, generateAuditEntry('Manager', 'Inventory Returned', showReturn.id, 'Allocated', newStatus)])
-    setShowReturn(null)
+    const newStatus = retForm.condition === 'Damaged' ? 'maintenance' : 'available'
+    setRetError('')
+    setRetSaving(true)
+    try {
+      await apiFetch(`/api/assets/${showReturn.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status:          newStatus,
+          assigned_to:     null,
+          assigned_since:  null,
+          expected_return: null,
+        }),
+      })
+      setAuditLog(al => [...al, generateAuditEntry(currentUser?.name || 'Manager', 'Inventory Returned', showReturn.id, 'Allocated', newStatus === 'maintenance' ? 'Damaged' : 'Returned')])
+      setShowReturn(null)
+      refreshInventory?.()
+    } catch (err) {
+      setRetError(err.message || 'Failed to return. Please try again.')
+    } finally {
+      setRetSaving(false)
+    }
   }
 
   return (
@@ -476,11 +544,11 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
         </div>
         <select value={region} onChange={e => setRegion(e.target.value)} style={{ padding: '9px 12px', border: '1.5px solid #d1d5db', borderRadius: 8, fontSize: 14, color: '#374151' }}>
           <option value="">All Regions</option>
-          {REGIONS.map(r => <option key={r}>{r}</option>)}//this region option shld  be fetch from the backend region table
+          {locations.map(r => <option key={r}>{r}</option>)}
         </select>
         <select value={category} onChange={e => setCategory(e.target.value)} style={{ padding: '9px 12px', border: '1.5px solid #d1d5db', borderRadius: 8, fontSize: 14, color: '#374151' }}>
           <option value="">All Categories</option>
-          {INVENTORY_CATEGORIES.map(c => <option key={c}>{c}</option>)} //this category option shld  be fetch from the backend category table
+          {categories.map(c => <option key={c}>{c}</option>)}
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: '9px 12px', border: '1.5px solid #d1d5db', borderRadius: 8, fontSize: 14, color: '#374151' }}>
           <option value="">All Statuses</option>
@@ -672,7 +740,7 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
               <Input label="Purchase Price" value={form.purchase_price} onChange={v => setF('purchase_price', v)} type="number" placeholder="e.g. 55000" />
               <Input label="Invoice Number" value={form.invoice_number} onChange={v => setF('invoice_number', v)} placeholder="e.g. INV-2026-001" />
               <Input label="Warranty Expiry" value={form.warranty_expiry} onChange={v => setF('warranty_expiry', v)} type="date" />
-              <Input label="Assigned To" value={form.assigned_to} onChange={v => setForm(f => ({ ...f, assigned_to: v, engineer: v }))} options={ALL_ENGINEERS} placeholder="Select engineer…" />
+              <Input label="Assigned To" value={form.assigned_to} onChange={v => setForm(f => ({ ...f, assigned_to: v, engineer: v }))} options={engineerUsers.map(u => u.name)} placeholder="Select engineer…" />
               <Input label="Assigned Since" value={form.assigned_since} onChange={v => setF('assigned_since', v)} type="date" />
               <Input label="Next Maintenance Date" value={form.next_maintenance_date} onChange={v => setF('next_maintenance_date', v)} type="date" />
             </div>
@@ -787,7 +855,7 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
               <Input label="Purchase Price" value={form.purchase_price} onChange={v => setF('purchase_price', v)} type="number" placeholder="e.g. 55000" />
               <Input label="Invoice Number" value={form.invoice_number} onChange={v => setF('invoice_number', v)} placeholder="e.g. INV-2026-001" />
               <Input label="Warranty Expiry" value={form.warranty_expiry} onChange={v => setF('warranty_expiry', v)} type="date" />
-              <Input label="Assigned To" value={form.assigned_to} onChange={v => setForm(f => ({ ...f, assigned_to: v, engineer: v }))} options={ALL_ENGINEERS} placeholder="Select engineer…" />
+              <Input label="Assigned To" value={form.assigned_to} onChange={v => setForm(f => ({ ...f, assigned_to: v, engineer: v }))} options={engineerUsers.map(u => u.name)} placeholder="Select engineer…" />
               <Input label="Assigned Since" value={form.assigned_since} onChange={v => setF('assigned_since', v)} type="date" />
               <Input label="Next Maintenance Date" value={form.next_maintenance_date} onChange={v => setF('next_maintenance_date', v)} type="date" />
             </div>
@@ -849,16 +917,17 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
 
       {showAllocate && (
         <Modal title={`Allocate: ${showAllocate.name}`} onClose={() => setShowAllocate(null)} width={440}>
-          <Input label="Engineer Name" value={allocForm.engineer} onChange={v => setAllocForm(f => ({ ...f, engineer: v }))} options={ALL_ENGINEERS} required />
+          <Input label="Engineer Name" value={allocForm.engineer} onChange={v => setAllocForm(f => ({ ...f, engineer: v }))} options={engineerUsers.map(u => u.name)} required />
           <Input label="Project Name" value={allocForm.project} onChange={v => setAllocForm(f => ({ ...f, project: v }))} required />
           <Input label="Allocation Date" value={allocForm.allocationDate} onChange={v => setAllocForm(f => ({ ...f, allocationDate: v }))} type="date" required />
           <Input label="Expected Return Date" value={allocForm.expectedReturn} onChange={v => setAllocForm(f => ({ ...f, expectedReturn: v }))} type="date" required />
           <div style={{ padding: '10px 14px', background: '#fefce8', borderRadius: 8, fontSize: 13, color: '#92400e', marginBottom: 16 }}>
             Status will change: <strong>Available → Allocated</strong>
           </div>
+          {allocError && <div style={{ padding: '10px 14px', background: '#fef2f2', borderRadius: 8, fontSize: 13, color: '#b91c1c', marginBottom: 16 }}>{allocError}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <Button variant="secondary" onClick={() => setShowAllocate(null)}>Cancel</Button>
-            <Button onClick={handleAllocate} icon={<Icon name="allocate" size={14} />} disabled={!allocForm.engineer || !allocForm.project}>Allocate</Button>
+            <Button onClick={handleAllocate} icon={<Icon name="allocate" size={14} />} disabled={!allocForm.engineer || !allocForm.project || allocSaving}>{allocSaving ? 'Allocating…' : 'Allocate'}</Button>
           </div>
         </Modal>
       )}
@@ -872,9 +941,10 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
           <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, fontSize: 13, color: '#166534', marginBottom: 16 }}>
             Return date will be captured as today: <strong>{new Date().toLocaleDateString()}</strong>
           </div>
+          {retError && <div style={{ padding: '10px 14px', background: '#fef2f2', borderRadius: 8, fontSize: 13, color: '#b91c1c', marginBottom: 16 }}>{retError}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <Button variant="secondary" onClick={() => setShowReturn(null)}>Cancel</Button>
-            <Button variant="success" onClick={handleReturn} icon={<Icon name="return" size={14} />}>Confirm Return</Button>
+            <Button variant="success" onClick={handleReturn} icon={<Icon name="return" size={14} />} disabled={retSaving}>{retSaving ? 'Returning…' : 'Confirm Return'}</Button>
           </div>
         </Modal>
       )}
@@ -1450,6 +1520,7 @@ function SignIn({ onLogin }) {
     try {
       const response = await fetch('http://localhost:3001/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       })
@@ -1943,7 +2014,9 @@ function getStoredUser() {
 export default function InventoryApp() {
   const [currentUser, setCurrentUser] = useState(getStoredUser)
   const [page, setPage] = useState('dashboard')
-  const [inventory, setInventory] = useState(INITIAL_INVENTORY)
+  const [inventory, setInventory] = useState([])
+  const [invLoading, setInvLoading] = useState(false)
+  const [invError, setInvError] = useState(null)
   const [auditLog, setAuditLog] = useState(INITIAL_AUDIT)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [miscItems, setMiscItems] = useState([])
@@ -1959,8 +2032,69 @@ export default function InventoryApp() {
   const [locError, setLocError] = useState(null)
   const [catError, setCatError] = useState(null)
 
+  // ── Engineer/user directory (used by the Allocate picker) ───────────────────
+  const [engineerUsers, setEngineerUsers] = useState([])
+
+  // Backend status enum → the display labels the UI already uses everywhere.
+  // Note: the backend only has one 'assigned' state, so both 'Allocated' and
+  // 'Reserved' collapse to 'Allocated' when read back; likewise 'maintenance'
+  // collapses to 'Damaged'. This mirrors the forward STATUS_MAP used on save.
+  const STATUS_FROM_API = {
+    available:   'Available',
+    assigned:    'Allocated',
+    maintenance: 'Damaged',
+    retired:     'Retired',
+    lost:        'Lost',
+    disposed:    'Retired',
+  }
+
+  // Map a raw /api/assets row (joined with category/location/user names) into
+  // the flat shape the rest of the UI already expects.
+  const mapAssetFromApi = (a) => ({
+    id: a.id,
+    name: a.name,
+    type: a.name,
+    brand: a.brand,
+    category: a.category_name || '',
+    category_id: a.category_id || '',
+    serial: a.serial_number || '',
+    asset: a.asset_tag || '',
+    barcode: a.asset_tag || '',
+    region: a.location_label || a.region || '',
+    location_id: a.location_id || '',
+    engineer: a.assignee_name || '',
+    assigned_to: a.assigned_to || '',
+    allocationDate: a.assigned_since ? String(a.assigned_since).slice(0, 10) : '',
+    assigned_since: a.assigned_since ? String(a.assigned_since).slice(0, 10) : '',
+    expectedReturn: a.expected_return ? String(a.expected_return).slice(0, 10) : '',
+    status: STATUS_FROM_API[a.status] || 'Available',
+    remarks: a.notes || '',
+    quantity: 1,
+    model: a.model || '',
+    purchase_date: a.purchase_date ? String(a.purchase_date).slice(0, 10) : '',
+    purchase_price: a.purchase_price ?? '',
+    invoice_number: a.invoice_number || '',
+    warranty_expiry: a.warranty_expiry ? String(a.warranty_expiry).slice(0, 10) : '',
+    next_maintenance_date: a.next_maintenance_date ? String(a.next_maintenance_date).slice(0, 10) : '',
+  })
+
+  const refreshInventory = () => {
+    if (!currentUser) return
+    setInvLoading(true)
+    apiFetch('/api/assets?limit=100')
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.data || data.results || [])
+        setInventory(list.map(mapAssetFromApi))
+        setInvError(null)
+      })
+      .catch(err => setInvError(err.message || 'Could not load inventory from the server.'))
+      .finally(() => setInvLoading(false))
+  }
+
   useEffect(() => {
     if (!currentUser) return
+
+    refreshInventory()
 
     setLocLoading(true)
     apiFetch('/api/locations')
@@ -1987,6 +2121,18 @@ export default function InventoryApp() {
       })
       .catch(() => setCatError('Could not load categories — using defaults.'))
       .finally(() => setCatLoading(false))
+
+    // Engineer directory — only admin/inventory manager are allowed to call
+    // GET /api/users, and only those roles allocate assets.
+    const normalizedRole = String(currentUser.role || '').toLowerCase()
+    if (normalizedRole === 'administrator' || normalizedRole === 'inventory manager') {
+      apiFetch('/api/users?limit=100')
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data.data || data.results || [])
+          setEngineerUsers(list.filter(u => u.is_active !== false))
+        })
+        .catch(() => setEngineerUsers([]))
+    }
   }, [currentUser])
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -2090,7 +2236,7 @@ export default function InventoryApp() {
 
         <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
           {page === 'dashboard' && <Dashboard inventory={inventory} currentUser={currentUser} />}
-          {page === 'inventory' && <InventoryTable inventory={inventory} setInventory={setInventory} auditLog={auditLog} setAuditLog={setAuditLog} role={role} currentUser={currentUser} locations={locations} categories={categories} rawLocations={rawLocations} rawCategories={rawCategories} locLoading={locLoading} catLoading={catLoading} locError={locError} catError={catError} />}
+          {page === 'inventory' && <InventoryTable inventory={inventory} setInventory={setInventory} auditLog={auditLog} setAuditLog={setAuditLog} role={role} currentUser={currentUser} locations={locations} categories={categories} rawLocations={rawLocations} rawCategories={rawCategories} locLoading={locLoading} catLoading={catLoading} locError={locError} catError={catError} refreshInventory={refreshInventory} engineerUsers={engineerUsers} />}
           {page === 'barcode' && <BarcodeSection inventory={inventory} />}
           {page === 'allocation' && <AllocationSection inventory={inventory} setInventory={setInventory} auditLog={auditLog} setAuditLog={setAuditLog} currentUser={currentUser} />}
           {page === 'returns' && <ReturnSection inventory={inventory} currentUser={currentUser} />}
