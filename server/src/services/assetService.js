@@ -21,6 +21,7 @@ const BASE_SELECT = [
   'a.notes',
   'a.is_active',
   'a.assigned_since',
+  'a.expected_return',
   'a.created_at',
   'a.updated_at',
   // Joined fields
@@ -159,6 +160,7 @@ const updateStatus = async (id, status, notes = null) => {
   if (['retired','disposed','lost'].includes(status)) {
     payload.assigned_to   = null;
     payload.assigned_since = null;
+    payload.expected_return = null;
   }
 
   const [updated] = await db('assets').where({ id }).update(payload).returning('*');
@@ -271,14 +273,10 @@ async function getByAssignee({ email, name }) {
     .join('users as u', 'u.id', 'a.assigned_to')
     .leftJoin('categories as c', 'c.id', 'a.category_id')
     .leftJoin('locations as l', 'l.id', 'a.location_id')
-    .leftJoin('assignments as asg', function () {
-      this.on('asg.asset_id', '=', 'a.id')
-        .andOn('asg.user_id', '=', 'a.assigned_to')
-        .andOnVal('asg.status', '=', 'approved');
-    })
     .select(
       'a.id',
       'a.asset_tag',
+      'a.serial_number',
       'a.name',
       'a.status',
       'a.assigned_since as allocation_date',
@@ -286,7 +284,7 @@ async function getByAssignee({ email, name }) {
       'l.region as region',
       'u.name as employee',
       'u.email as employee_email',
-      'asg.expected_return'
+      'a.expected_return'
     )
     .orderBy('a.assigned_since', 'desc');
   if (email) {
