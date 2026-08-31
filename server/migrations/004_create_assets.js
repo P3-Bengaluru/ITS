@@ -42,6 +42,7 @@ exports.up = (knex) =>
     t.uuid('assigned_to').nullable()
       .references('id').inTable('users').onDelete('SET NULL');
     t.date('assigned_since').nullable();
+    t.date('expected_return').nullable(); // expected return date once allocated
 
     // Maintenance scheduling
     t.date('next_maintenance_date').nullable();
