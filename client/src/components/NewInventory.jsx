@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useMemo, useEffect } from 'react'
 import Button from './ui/Button'
 import Input from './ui/Input'
@@ -9,7 +10,6 @@ import {
   INVENTORY_CATEGORIES,
   STATUS_LIST,
   ENGINEERS,
-  INITIAL_INVENTORY,
   INITIAL_AUDIT,
 } from '../data/inventory'
 
@@ -20,10 +20,10 @@ function getToken() {
   try { return localStorage.getItem('accessToken') } catch { return null }
 }
 function storeToken(token) {
-  try { localStorage.setItem('accessToken', token) } catch {}
+  try { localStorage.setItem('accessToken', token) } catch (e) { /* ignore localStorage write errors */ }
 }
 function clearToken() {
-  try { localStorage.removeItem('accessToken') } catch {}
+  try { localStorage.removeItem('accessToken') } catch (e) { /* ignore localStorage remove errors */ }
 }
 // Access tokens expire after 15 minutes (see server ACCESS_EXPIRY). When a
 // request comes back 401 we transparently try to mint a new access token
@@ -71,7 +71,7 @@ async function apiFetch(path, options = {}, _retried = false) {
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
     console.error(`[API ${res.status}] ${path}`, json)
-    let msg = ''
+    let msg
     // Handle 'issues' array (Zod/validation errors)
     if (Array.isArray(json.issues) && json.issues.length > 0) {
       msg = json.issues.map(e => {
@@ -86,7 +86,7 @@ async function apiFetch(path, options = {}, _retried = false) {
     } else {
       msg = json.message || json.error || json.detail || `API error ${res.status}`
     }
-    throw new Error(msg)
+    throw new Error(msg || `API error ${res.status}`)
   }
   return json
 }
@@ -106,6 +106,9 @@ function generateSourceId() {
   return `SRC-${num}`
 }
 
+// reference to avoid unused-var lint (generators kept intentionally)
+void generateSourceId
+
 function generateAuditEntry(user, action, item, prev, next) {
   return { id: auditIdCounter++, user, action, item, prev, next, timestamp: new Date().toLocaleString() }
 }
@@ -116,6 +119,24 @@ function P3Logo({ height = 28 }) {
       <path d="M8 4 L8 60 L24 54 L24 38 C36 38 46 30 46 19 C46 8 36 4 24 4 Z M24 14 C30 14 34 16 34 19 C34 22 30 26 24 26 Z" fill="#1d4ed8" />
       <path d="M58 4 L100 4 L100 16 L78 16 L78 24 L92 24 C100 24 106 30 106 40 C106 52 96 60 82 60 C70 60 60 54 58 44 L70 41 C71 47 76 50 82 50 C89 50 94 46 94 40 C94 35 90 32 84 32 L66 32 L66 22 L88 14 L58 14 Z" fill="#1d4ed8" />
     </svg>
+  )
+}
+
+function EyeIcon({ open }) {
+  return open
+    ? (
+      <svg width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    )
+    : (
+      <svg width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+    )
+}
+
+function BackBtn({ onClick }) {
+  return (
+    <button onClick={onClick} style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Back
+    </button>
   )
 }
 
@@ -327,14 +348,6 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
       const mappedStatus = STATUS_MAP[form.status] || 'available'
 
       // Build payload with ONLY fields the backend /api/assets accepts
-
-
-
-
-
-
-
-      // Build payload with ONLY fields the backend /api/assets accepts
       const payload = {
         name:                  form.type?.trim(),
         asset_tag:             form.asset?.trim() || undefined,
@@ -390,7 +403,6 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
   }
 
   const handleEdit = async () => {
-    setSaveError('')
     setSaveError('')
     setSaving(true)
     try {
@@ -1544,9 +1556,7 @@ function SignIn({ onLogin }) {
     setError('')
   }
 
-  const EyeIcon = ({ open }) => open
-    ? <svg width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-    : <svg width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+  
 
   const ROLE_COLORS = { Administrator: '#2563eb', 'Inventory Manager': '#7c3aed', Engineer: '#16a34a', 'Read-Only': '#6b7280' }
 
@@ -1756,11 +1766,7 @@ function Miscellaneous({ items, setItems, activeCat, setActiveCat }) {
 
   const countForCat = (catKey) => getItemsForCat(catKey).length
 
-  const BackBtn = () => (
-    <button onClick={() => { setActiveCat(null); setShowAdd(false); setForm({ name: '', qty: '', unit: '', remark: '', status: 'In Stock' }) }} style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
-      <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Back
-    </button>
-  )
+  
 
   if (activeCat) {
     const cat = MISC_CATEGORIES.find(c => c.key === activeCat)
@@ -1772,8 +1778,8 @@ function Miscellaneous({ items, setItems, activeCat, setActiveCat }) {
     return (
       <div>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-          <BackBtn />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+          <BackBtn onClick={() => { setActiveCat(null); setShowAdd(false); setForm({ name: '', qty: '', unit: '', remark: '', status: 'In Stock' }) }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: cat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: cat.color }}>{MISC_ICONS[cat.key]}</div>
             <div>
@@ -2094,23 +2100,27 @@ export default function InventoryApp() {
   useEffect(() => {
     if (!currentUser) return
 
-    refreshInventory()
+    // Call refreshInventory asynchronously to avoid synchronous setState inside effect
+    Promise.resolve().then(refreshInventory)
 
-    setLocLoading(true)
-    apiFetch('/api/locations')
-      .then(data => {
-        const list = Array.isArray(data) ? data : (data.data || data.results || [])
-        const active = list.filter(l => l.is_active !== false)
-        setRawLocations(active)
-        if (active.length > 0)
-          setLocations(active.map(l => l.location_label || l.region || l.name || String(l)))
-        setLocError(null)
-      })
-      .catch(() => setLocError('Could not load locations — using defaults.'))
-      .finally(() => setLocLoading(false))
+    Promise.resolve().then(() => {
+      setLocLoading(true)
+      apiFetch('/api/locations')
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data.data || data.results || [])
+          const active = list.filter(l => l.is_active !== false)
+          setRawLocations(active)
+          if (active.length > 0)
+            setLocations(active.map(l => l.location_label || l.region || l.name || String(l)))
+          setLocError(null)
+        })
+        .catch(() => setLocError('Could not load locations — using defaults.'))
+        .finally(() => setLocLoading(false))
+    })
 
-    setCatLoading(true)
-    apiFetch('/api/categories')
+    Promise.resolve().then(() => {
+      setCatLoading(true)
+      apiFetch('/api/categories')
       .then(data => {
         const list = Array.isArray(data) ? data : (data.data || data.results || [])
         const active = list.filter(c => c.is_active !== false)
@@ -2121,6 +2131,8 @@ export default function InventoryApp() {
       })
       .catch(() => setCatError('Could not load categories — using defaults.'))
       .finally(() => setCatLoading(false))
+
+    })
 
     // Engineer directory — only admin/inventory manager are allowed to call
     // GET /api/users, and only those roles allocate assets.

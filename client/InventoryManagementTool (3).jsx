@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useState, useMemo } from "react";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import NewInventory from './components/NewInventory'
 import './App.css'
 
