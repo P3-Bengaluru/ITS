@@ -1,4 +1,6 @@
-require('dotenv').config();
+const path = require('path');
+// Load the project root .env (the repo places .env at the workspace root)
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
 module.exports = {
   development: {
