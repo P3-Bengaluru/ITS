@@ -843,40 +843,58 @@ exports.seed = async (knex) => {
   });
 
   // ── 7. Sample assignments ────────────────────────────────────
+  const VALID_ASSIGNMENT_STATUSES = ['pending', 'approved', 'rejected', 'returned', 'overdue'];
   const upsertAssignment = async ({
     asset_tag, user_email, status, requested_at, approved_at, rejected_at,
     checked_out_at, expected_return, returned_at, approved_by_email,
     request_reason, rejection_reason, return_notes, return_condition,
   }) => {
-    const asset = await knex('assets').select('id').where({ asset_tag }).first();
-    if (!asset) return;
-    const user_id = await userId(user_email);
+    try {
+      if (!VALID_ASSIGNMENT_STATUSES.includes(status)) {
+        console.warn(`⚠️  Skipping assignment for ${asset_tag}/${user_email}: invalid status "${status}"`);
+        return;
+      }
 
-    const existing = await knex('assignments')
-      .select('id')
-      .where({ asset_id: asset.id, user_id, status })
-      .first();
-    if (existing) return; // idempotent: skip if this exact assignment record already exists
+      const asset = await knex('assets').select('id').where({ asset_tag }).first();
+      if (!asset) {
+        console.warn(`⚠️  Skipping assignment for ${asset_tag}/${user_email}: no such asset_tag`);
+        return;
+      }
+      const user_id = await userId(user_email);
+      if (!user_id) {
+        console.warn(`⚠️  Skipping assignment for ${asset_tag}/${user_email}: no such user`);
+        return;
+      }
 
-    await knex('assignments').insert({
-      id: knex.fn.uuid(),
-      asset_id: asset.id,
-      user_id,
-      status,
-      requested_at: requested_at || null,
-      approved_at: approved_at || null,
-      rejected_at: rejected_at || null,
-      checked_out_at: checked_out_at || null,
-      expected_return: expected_return || null,
-      returned_at: returned_at || null,
-      approved_by: approved_by_email ? await userId(approved_by_email) : null,
-      request_reason: request_reason || null,
-      rejection_reason: rejection_reason || null,
-      return_notes: return_notes || null,
-      return_condition: return_condition || null,
-      created_at: knex.fn.now(),
-      updated_at: knex.fn.now(),
-    });
+      const existing = await knex('assignments')
+        .select('id')
+        .where({ asset_id: asset.id, user_id, status })
+        .first();
+      if (existing) return; // idempotent: skip if this exact assignment record already exists
+
+      await knex('assignments').insert({
+        id: knex.fn.uuid(),
+        asset_id: asset.id,
+        user_id,
+        status,
+        requested_at: requested_at || null,
+        approved_at: approved_at || null,
+        rejected_at: rejected_at || null,
+        checked_out_at: checked_out_at || null,
+        expected_return: expected_return || null,
+        returned_at: returned_at || null,
+        approved_by: approved_by_email ? await userId(approved_by_email) : null,
+        request_reason: request_reason || null,
+        rejection_reason: rejection_reason || null,
+        return_notes: return_notes || null,
+        return_condition: return_condition || null,
+        created_at: knex.fn.now(),
+        updated_at: knex.fn.now(),
+      });
+    } catch (err) {
+      // Don't let one bad seed row take down the whole API container.
+      console.warn(`⚠️  Skipping assignment for ${asset_tag}/${user_email}: ${err.message}`);
+    }
   };
 
   await upsertAssignment({
