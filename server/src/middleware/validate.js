@@ -50,6 +50,7 @@ const assetCreateSchema = z.object({
   assigned_to:                uuidField.optional().nullable(),
   assigned_since:             dateField,
   expected_return:            dateField,
+  project_name:               z.string().max(255).optional().nullable(),
 });
 
 const assetUpdateSchema = assetCreateSchema.partial(); // all fields optional on PATCH

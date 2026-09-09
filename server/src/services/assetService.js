@@ -22,6 +22,7 @@ const BASE_SELECT = [
   'a.is_active',
   'a.assigned_since',
   'a.expected_return',
+  'a.project_name',
   'a.created_at',
   'a.updated_at',
   // Joined fields
