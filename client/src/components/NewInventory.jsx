@@ -270,10 +270,9 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
   const [statusFilter, setStatusFilter] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [showEdit, setShowEdit] = useState(null)
-  const [showAllocate, setShowAllocate] = useState(null)
-  const [showReturn, setShowReturn] = useState(null)
+    const [showReturn, setShowReturn] = useState(null)
 
-  const emptyForm = { id: '', name: '', type: '', category: '3PL AA/CP', serial: '', asset: '', barcode: generateBarcode(), region: 'Bengaluru', engineer: '', receivedDate: '', returnDate: '', status: 'Available', remarks: '', quantity: 1, allocationDate: '', expectedReturn: '', sourceType: 'Client', sourceId: '', sourceName: '', sourceCompany: '', sourceAddress: '', sourcePhone: '', sourceEmail: '', sourceWebsite: '', sourceRemark: '', model: '', purchase_date: '', purchase_price: '', invoice_number: '', warranty_expiry: '', assigned_to: '', assigned_since: '', next_maintenance_date: '' }
+  const emptyForm = { id: '', name: '', type: '', category: '3PL AA/CP', serial: '', asset: '', barcode: generateBarcode(), region: 'Bengaluru', engineer: '', receivedDate: '', returnDate: '', status: 'Available', remarks: '', quantity: 1, allocationDate: '', expectedReturn: '', expected_return: '', project_name: '', sourceType: 'Client', sourceId: '', sourceName: '', sourceCompany: '', sourceAddress: '', sourcePhone: '', sourceEmail: '', sourceWebsite: '', sourceRemark: '', model: '', purchase_date: '', purchase_price: '', invoice_number: '', warranty_expiry: '', assigned_to: '', assigned_since: '', next_maintenance_date: '' }
   const [form, setForm] = useState(emptyForm)
 
   const filtered = useMemo(() => inventory.filter(i =>
@@ -352,6 +351,8 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
         warranty_expiry:       form.warranty_expiry || undefined,
         assigned_to:           engineerUsers.find(u => u.name === form.assigned_to?.trim())?.id || undefined,
         assigned_since:        form.assigned_since || undefined,
+        expected_return:       form.expected_return || form.expectedReturn || undefined,
+        project_name:          form.project_name?.trim() || undefined,
         next_maintenance_date: form.next_maintenance_date || undefined,
       }
 
@@ -424,6 +425,8 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
         warranty_expiry:       form.warranty_expiry || undefined,
         assigned_to:           engineerUsers.find(u => u.name === form.assigned_to?.trim())?.id || undefined,
         assigned_since:        form.assigned_since || undefined,
+        expected_return:       form.expected_return || form.expectedReturn || undefined,
+        project_name:          form.project_name?.trim() || undefined,
         next_maintenance_date: form.next_maintenance_date || undefined,
       }
 
@@ -463,39 +466,6 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
       refreshInventory?.()
     } catch (err) {
       alert(`Delete failed: ${err.message}`)
-    }
-  }
-
-  const [allocForm, setAllocForm] = useState({ engineer: '', project: '', allocationDate: '', expectedReturn: '' })
-  const [allocSaving, setAllocSaving] = useState(false)
-  const [allocError, setAllocError] = useState('')
-  const handleAllocate = async () => {
-    if (!showAllocate?.id) return
-    const matchedUser = engineerUsers.find(u => u.name === allocForm.engineer)
-    if (!matchedUser) {
-      setAllocError('Could not find that engineer in the user directory. Please pick one from the list.')
-      return
-    }
-    setAllocError('')
-    setAllocSaving(true)
-    const prev = showAllocate.status
-    try {
-      await apiFetch(`/api/assets/${showAllocate.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          status:          'assigned',
-          assigned_to:     matchedUser.id,
-          assigned_since:  allocForm.allocationDate || new Date().toISOString().slice(0, 10),
-          expected_return: allocForm.expectedReturn || undefined,
-        }),
-      })
-      setAuditLog(al => [...al, generateAuditEntry(currentUser?.name || 'Inventory Manager', 'Inventory Allocated', showAllocate.id, prev, 'Allocated')])
-      setShowAllocate(null)
-      refreshInventory?.()
-    } catch (err) {
-      setAllocError(err.message || 'Failed to allocate. Please try again.')
-    } finally {
-      setAllocSaving(false)
     }
   }
 
@@ -600,9 +570,8 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
                   <div style={{ display: 'flex', gap: 6 }}>
                     {(role === 'Administrator' || role === 'Inventory Manager') && (
                       <>
-                        <button title="Edit" onClick={() => { setForm({ ...item, assigned_to: item.assigned_to || item.engineer || '' }); setShowEdit(item) }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer' }}><Icon name="edit" size={13} color="#374151" /></button>
-                        {item.status === 'Available' && <button title="Allocate" onClick={() => { setShowAllocate(item); setAllocForm({ engineer: '', project: '', allocationDate: new Date().toISOString().slice(0, 10), expectedReturn: '' }) }} style={{ background: '#dbeafe', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer' }}><Icon name="allocate" size={13} color="#2563eb" /></button>}
-                        {item.status === 'Allocated' && <button title="Return" onClick={() => { setShowReturn(item); setRetForm({ condition: 'Good' }) }} style={{ background: '#dcfce7', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer' }}><Icon name="return" size={13} color="#16a34a" /></button>}
+                        <button title="Edit" onClick={() => { setForm({ ...item, type: item.name, name: item.brand, assigned_to: item.assigned_to || item.engineer || '' }); setShowEdit(item) }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer' }}><Icon name="edit" size={13} color="#374151" /></button>
+                                                {item.status === 'Allocated' && <button title="Return" onClick={() => { setShowReturn(item); setRetForm({ condition: 'Good' }) }} style={{ background: '#dcfce7', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer' }}><Icon name="return" size={13} color="#16a34a" /></button>}
                         {role === 'Administrator' && <button title="Delete" onClick={() => handleDelete(item.id)} style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer' }}><Icon name="trash" size={13} color="#dc2626" /></button>}
                       </>
                     )}
@@ -742,6 +711,8 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
               <Input label="Warranty Expiry" value={form.warranty_expiry} onChange={v => setF('warranty_expiry', v)} type="date" />
               <Input label="Assigned To" value={form.assigned_to} onChange={v => setForm(f => ({ ...f, assigned_to: v, engineer: v }))} options={engineerUsers.map(u => u.name)} placeholder="Select engineer…" />
               <Input label="Assigned Since" value={form.assigned_since} onChange={v => setF('assigned_since', v)} type="date" />
+              <Input label="Project Name" value={form.project_name} onChange={v => setF('project_name', v)} placeholder="e.g. Client Onboarding Q3" />
+              <Input label="Expected Return Date" value={form.expected_return || form.expectedReturn} onChange={v => setF('expected_return', v)} type="date" />
               <Input label="Next Maintenance Date" value={form.next_maintenance_date} onChange={v => setF('next_maintenance_date', v)} type="date" />
             </div>
           </div>
@@ -857,6 +828,8 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
               <Input label="Warranty Expiry" value={form.warranty_expiry} onChange={v => setF('warranty_expiry', v)} type="date" />
               <Input label="Assigned To" value={form.assigned_to} onChange={v => setForm(f => ({ ...f, assigned_to: v, engineer: v }))} options={engineerUsers.map(u => u.name)} placeholder="Select engineer…" />
               <Input label="Assigned Since" value={form.assigned_since} onChange={v => setF('assigned_since', v)} type="date" />
+              <Input label="Project Name" value={form.project_name} onChange={v => setF('project_name', v)} placeholder="e.g. Client Onboarding Q3" />
+              <Input label="Expected Return Date" value={form.expected_return || form.expectedReturn} onChange={v => setF('expected_return', v)} type="date" />
               <Input label="Next Maintenance Date" value={form.next_maintenance_date} onChange={v => setF('next_maintenance_date', v)} type="date" />
             </div>
           </div>
@@ -911,23 +884,6 @@ function InventoryTable({ inventory, setInventory, auditLog, setAuditLog, role, 
             <Button onClick={handleEdit} disabled={saving} icon={saving ? null : <Icon name="check" size={14} />}>
               {saving ? 'Saving…' : 'Save Changes'}
             </Button>
-          </div>
-        </Modal>
-      )}
-
-      {showAllocate && (
-        <Modal title={`Allocate: ${showAllocate.name}`} onClose={() => setShowAllocate(null)} width={440}>
-          <Input label="Engineer Name" value={allocForm.engineer} onChange={v => setAllocForm(f => ({ ...f, engineer: v }))} options={engineerUsers.map(u => u.name)} required />
-          <Input label="Project Name" value={allocForm.project} onChange={v => setAllocForm(f => ({ ...f, project: v }))} required />
-          <Input label="Allocation Date" value={allocForm.allocationDate} onChange={v => setAllocForm(f => ({ ...f, allocationDate: v }))} type="date" required />
-          <Input label="Expected Return Date" value={allocForm.expectedReturn} onChange={v => setAllocForm(f => ({ ...f, expectedReturn: v }))} type="date" required />
-          <div style={{ padding: '10px 14px', background: '#fefce8', borderRadius: 8, fontSize: 13, color: '#92400e', marginBottom: 16 }}>
-            Status will change: <strong>Available → Allocated</strong>
-          </div>
-          {allocError && <div style={{ padding: '10px 14px', background: '#fef2f2', borderRadius: 8, fontSize: 13, color: '#b91c1c', marginBottom: 16 }}>{allocError}</div>}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <Button variant="secondary" onClick={() => setShowAllocate(null)}>Cancel</Button>
-            <Button onClick={handleAllocate} icon={<Icon name="allocate" size={14} />} disabled={!allocForm.engineer || !allocForm.project || allocSaving}>{allocSaving ? 'Allocating…' : 'Allocate'}</Button>
           </div>
         </Modal>
       )}
@@ -2067,6 +2023,8 @@ export default function InventoryApp() {
     allocationDate: a.assigned_since ? String(a.assigned_since).slice(0, 10) : '',
     assigned_since: a.assigned_since ? String(a.assigned_since).slice(0, 10) : '',
     expectedReturn: a.expected_return ? String(a.expected_return).slice(0, 10) : '',
+    expected_return: a.expected_return ? String(a.expected_return).slice(0, 10) : '',
+    project_name: a.project_name || '',
     status: STATUS_FROM_API[a.status] || 'Available',
     remarks: a.notes || '',
     quantity: 1,
